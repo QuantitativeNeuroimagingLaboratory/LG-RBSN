@@ -1,8 +1,6 @@
-################################################################################
-### Landmark Guided Region Based Spatial Normalization #########################
-######################## By Hengda He and Ray Razlighi #########################
-######################################## April 11 2020 #########################
-################################################################################
+Landmark Guided Region Based Spatial Normalization 
+By Hengda He and Ray Razlighi 
+April 11 2020 
 
 1. Directory Setup:
 
