@@ -1,0 +1,537 @@
+%
+%  segframe, Copyright (C) 2009-2012, Stefan Sommer (sommer@diku.dk)
+%  https://github.com/nefan/segframe.git
+% 
+%  This file is part of segframe.
+% 
+%  segframe is free software: you can redistribute it and/or modify
+%  it under the terms of the GNU General Public License as published by
+%  the Free Software Foundation, either version 3 of the License, or
+%  (at your option) any later version.
+% 
+%  segframe is distributed in the hope that it will be useful,
+%  but WITHOUT ANY WARRANTY; without even the implied warranty of
+%  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%  GNU General Public License for more details.
+% 
+%  You should have received a copy of the GNU General Public License
+%  along with segframe.  If not, see <http://www.gnu.org/licenses/>.
+%  
+
+% function catfields_v1_0%(SUB,hm)
+clear all; close all; clc
+
+SUB = 'P00004368';
+hm = 'lh';
+
+projectdir='/Users/hengdahe/LAB/RDIR';
+imagedir = ['/Users/hengdahe/LAB/RDIR/Workspace_',SUB];
+
+
+if  hm == 'lh'
+%     regioninput = [1001,1030];
+    regioninput = [1001,1006,1007,1009,1015,1016,1030,1033,1034];
+    else if hm == 'rh';
+           regioninput = [2001,2006,2007,2009,2015,2016,2030,2033,2034]; 
+        end
+    end
+
+kernelsize = 4;
+weight = 100;
+
+Outdir = [projectdir,'/Workspace_',SUB];
+
+kernelscale = num2str(kernelsize);
+
+%% load files
+trans = zeros(length(regioninput),3);
+subimage = cell(length(regioninput),1);
+MNIimage = cell(length(regioninput),1);
+gridMovingBBXtransall = cell(length(regioninput),3);
+gridFixedBBX = cell(length(regioninput),3);
+displacement = cell(length(regioninput),3);
+boundingbox = zeros(length(regioninput),6);
+
+for i = 1:length(regioninput)
+
+    region = num2str(regioninput(i));
+    datadir = [imagedir,'/region',region,'/'];
+    % NIFTI Images
+    disp('Load NIFTI Images')
+    disp([datadir,'aparc+aseg_',region,'_MNI.nii'])
+%     [MNI MNIheader] = rest_ReadNiftiImage([datadir,'aparc+aseg_',region,'_MNI.nii']);
+    MNI = niftiread([datadir,'aparc+aseg_',region,'_MNI.nii']);
+    MNI = double(MNI);
+%     MNI = MNIObj.img;
+    MNIimage{i} = MNI;
+
+    disp([datadir,'aparc+aseg_',region,'.nii'])
+%     [sub subheader] = rest_ReadNiftiImage([datadir,'aparc+aseg_',region,'.nii']);
+    sub = niftiread([datadir,'aparc+aseg_',region,'.nii']);
+    sub = double(sub);
+%     sub = subOBJ.img;
+    subimage{i} = sub;
+    
+    % transformation 
+    disp('Load Deformation Files')
+    gridMovingBBXtransallObj = load([Outdir,'/mat/',hm,'-gridMovingBBXtransall_',region,'.mat']);
+    gridFixedBBXObj = load([Outdir,'/mat/',hm,'-gridFixedBBX_',region,'.mat']);
+    boundingboxObj = load([Outdir,'/mat/',hm,'-boundingbox_',region,'.mat']);
+    
+    for d = 1:3
+        gridMovingBBXtransall{i,d} = gridMovingBBXtransallObj.gridMovingBBXtransall{d};
+        gridFixedBBX{i,d} = gridFixedBBXObj.gridFixedBBX{d};
+        displacement{i,d} = gridMovingBBXtransall{i,d} - gridFixedBBX{i,d};
+    end
+    boundingbox(i,:) = boundingboxObj.boundingbox;
+    % calculate trans
+    [IUyMNI,IUxMNI,IUzMNI] = ind2sub(size(MNI),find(MNI == regioninput(i)));
+    [IUy,IUx,IUz] = ind2sub(size(sub),find(sub == regioninput(i)));
+    dtx = round(mean(IUxMNI) - mean(IUx));
+    dty = round(mean(IUyMNI) - mean(IUy));
+    dtz = round(mean(IUzMNI) - mean(IUz));
+    trans(i,:)=[dtx,dty,dtz];
+    transrev(i,:)=[dty,dtx,dtz];
+end
+%% permute deformation to make size align with image size
+ for i = 1:length(regioninput)
+    for d = 1:3
+        gridMovingBBXtransall{i,d} = permute(gridMovingBBXtransall{i,d},[2 1 3]);
+        gridFixedBBX{i,d} = permute(gridFixedBBX{i,d},[2 1 3]);
+        displacement{i,d} = permute(displacement{i,d},[2 1 3]);
+    end
+ end
+%% regional displacement linear+nonlinear addup
+field = cell(length(regioninput),3);
+weight =cell(length(regioninput),3);
+displacementregion = cell(length(regioninput),3);
+displacementregionmask = cell(length(regioninput),3);
+submaskmap = cell(length(regioninput),1);
+   for i = 1:length(regioninput)
+       submask = subimage{i}((boundingbox(i,3)-2 - trans(i,2)):(boundingbox(i,4)+2- trans(i,2))...
+          ,(boundingbox(i,1)-2- trans(i,1)):(boundingbox(i,2)+2- trans(i,1)),...
+          (boundingbox(i,5)-2- trans(i,3)):(boundingbox(i,6)+2- trans(i,3)));
+       submask(find(submask~=0)) = 1;
+       submaskmap{i} = submask;
+       for d = 1:3
+           imgsize = size(displacement{i,d});
+%            displacementregion{i,d} = transrev(i,d)*ones(imgsize).*submask + displacement{i,d}.*submask;
+%            displacementregion{i,d} = displacement{i,d};
+           displacementregion{i,d} = transrev(i,d)*ones(imgsize) + displacement{i,d};
+           
+           
+           % set up mask
+            [xse,yse,zse] = ndgrid(-2:2);
+            se = strel(sqrt(xse.^2 + yse.^2 + zse.^2) <=3); % DICE 86.78
+            dilatedsubmask = imdilate(submask,se);
+    
+%            displacementregionmask{i,d} = ones(imgsize);
+%            displacementregionmask{i,d} = submaskmap{i};
+            displacementregionmask{i,d} = dilatedsubmask;
+           
+           
+%            displacementregion{i,d} = displacement{i,d}.*submask;
+%            gridMovingBBXtransallregion{i,d} = displacementregion{i,d} + gridFixedBBX{i,d};
+       end
+   end
+
+    for d = 1:3
+        for i = 1:length(regioninput);
+            field{i,d} = zeros(size(sub));
+            field{i,d}((boundingbox(i,3)-2 - trans(i,2)):(boundingbox(i,4)+2- trans(i,2))...
+                  ,(boundingbox(i,1)-2- trans(i,1)):(boundingbox(i,2)+2- trans(i,1)),...
+                  (boundingbox(i,5)-2- trans(i,3)):(boundingbox(i,6)+2- trans(i,3))) = ...
+                  displacementregion{i,d}; 
+            weight{i,d} = zeros(size(sub));
+            weight{i,d}((boundingbox(i,3)-2 - trans(i,2)):(boundingbox(i,4)+2- trans(i,2))...
+                  ,(boundingbox(i,1)-2- trans(i,1)):(boundingbox(i,2)+2- trans(i,1)),...
+                  (boundingbox(i,5)-2- trans(i,3)):(boundingbox(i,6)+2- trans(i,3))) = ...
+                  displacementregionmask{i,d}; 
+        end
+   end
+
+   %% sum up image and field
+  
+   suball = zeros(256,256,256);
+   MNIall = zeros(256,256,256);
+   fieldall = cell(1,3);
+   weightmaprev = cell(1,3);
+   weightmap = cell(1,3);
+   for i = 1:length(regioninput)
+       suball = suball+subimage{i};
+       MNIall = MNIall+MNIimage{i};
+   end
+   suball_bin = suball;
+   suball_bin(find(suball_bin~=0)) = 1;
+   MNIall_bin = MNIall;
+   MNIall_bin(find(MNIall_bin~=0)) = 1;
+   
+       for d = 1:3
+           fieldall{d} = zeros(256,256,256);
+           weightmaprev{d} = zeros(256,256,256);
+           for i = 1:length(regioninput)
+%                fieldall{d} = fieldall{d} +  field{i,d};
+               weightmaprev{d} = weightmaprev{d} +  weight{i,d};
+           end
+           weightmap{d} = 1./weightmaprev{d};
+           weightmap{d}(find(weightmap{d}==inf)) = 0;
+%            weightmap{d}(find(suball_bin~=0)) = 1; % for weight inside regions set weight to 1
+           
+           for i = 1:length(regioninput)
+               weight{i,d} = weight{i,d}.*weightmap{d};
+               
+               fieldall{d} = fieldall{d} +  field{i,d}.*weight{i,d}; % tricky when multiply 1s, only apply to corresponded region
+%                weightmaprev{d} = weightmaprev{d} +  weight{i,d};
+           end
+       end
+       
+
+%% debug transforming one region
+
+[weighty,weightx,weightz] = ind2sub(size(weightmap{1}),find(weightmap{1} ~= 0));
+[MNIy,MNIx,MNIz] = ind2sub(size(MNIall_bin),find(MNIall_bin ~= 0));
+
+
+bx = [min([weightx;MNIx]) max([weightx;MNIx]) min([weighty;MNIy]) max([weighty;MNIy]) min([weightz;MNIz]) max([weightz;MNIz])];
+    [gridFixedimage{1} gridFixedimage{2} gridFixedimage{3}] = meshgrid((bx(3)):(bx(4))...
+        ,(bx(1)):(bx(2)),(bx(5)):(bx(6)));
+
+    for d = 1:3
+        gridFixedimage{d} = permute(gridFixedimage{d},[2 1 3]);
+    end
+    
+% [gridFixedimage{1} gridFixedimage{2} gridFixedimage{3}] = meshgrid(1:256,1:256,1:256);
+
+%% field interpolation 
+
+% (filling with mean linear transformation)
+% meantrans = mean(transrev);
+% for d = 1:3
+%     fieldall{d}(find(fieldall{d}==0)) = meantrans(1,d);
+% end
+% for d = 1:3
+%     gridMovingimage{d} = gridFixedimage{d} + fieldall{d}(bx(3):bx(4)...
+%                   ,bx(1):bx(2),bx(5):bx(6));
+% end    
+
+% TPS interpolation
+for d = 1:3
+    gridMovingimage{d} = gridFixedimage{d} + fieldall{d}(bx(3):bx(4)...
+             ,bx(1):bx(2),bx(5):bx(6));
+end   
+    fieldint = fieldall{1}(bx(3):bx(4),bx(1):bx(2),bx(5):bx(6));
+    [gridy,gridx,gridz] = ind2sub(size(fieldint),find(fieldint ~= 0));
+
+source = zeros(length(gridy),3);
+target = zeros(length(gridy),3);   
+
+for j = 1:length(gridy)
+    for d = 1:3
+      source(j,d) = gridFixedimage{d}(gridy(j),gridx(j),gridz(j));
+      target(j,d) = gridMovingimage{d}(gridy(j),gridx(j),gridz(j));
+    end
+end
+object = zeros(prod(size(fieldint)),3);
+for d = 1:3
+   object(:,d) = reshape(gridFixedimage{d},object,1); 
+end
+
+tps = TPS3D(source,target);
+
+
+
+%%
+% for d = 1:3
+%     gridMovingimage{d} = gridFixedimage{d} + fieldall{d}(bx(3):bx(4)...
+%                   ,bx(1):bx(2),bx(5):bx(6));
+% end    
+
+% for i = 1
+
+   
+%        IMBBX = subimage{1}(bx(3):bx(4)...
+%                   ,bx(1):bx(2),bx(5):bx(6));
+       IMBBX = suball_bin(bx(3):bx(4)...
+                  ,bx(1):bx(2),bx(5):bx(6));
+%        submask(find(submask~=0)) = 1;
+       
+        interpolant = scatteredInterpolant(reshape(gridMovingimage{2},numel(IMBBX),1),...
+            reshape(gridMovingimage{1},numel(IMBBX),1), reshape(gridMovingimage{3},numel(IMBBX),1)...
+            , reshape(IMBBX,numel(IMBBX),1), 'nearest');
+
+        vals = interpolant(reshape(gridFixedimage{2},numel(IMBBX),1),...
+            reshape(gridFixedimage{1},numel(IMBBX),1), reshape(gridFixedimage{3},numel(IMBBX),1));
+        IMresult = reshape(vals,size(IMBBX));
+     
+        
+        IFBBX = MNIall_bin(bx(3):bx(4)...
+                  ,bx(1):bx(2),bx(5):bx(6));    
+%         IFBBX = MNIimage{1}(bx(3):bx(4)...
+%                   ,bx(1):bx(2),bx(5):bx(6));    
+            
+        similarity = 2*nnz(IMresult&IFBBX)/(nnz(IMresult) + nnz(IFBBX));
+
+        disp('------------Results---------------')
+        disp([' IF&Deformed IM, DICE=',num2str(similarity)])
+
+        tsimilarity = nnz(IMresult&IFBBX)/(nnz(IFBBX));
+        disp([' IF&Deformed IM, Target Overlap=',num2str(tsimilarity)])
+        
+% end
+
+similarity = zeros(length(regioninput),1);
+  for i = 1:length(regioninput)
+       IMBBX = subimage{i}(bx(3):bx(4)...
+                  ,bx(1):bx(2),bx(5):bx(6));
+%        IMBBX = suball_bin(bx(3):bx(4)...
+%                   ,bx(1):bx(2),bx(5):bx(6));
+%        submask(find(submask~=0)) = 1;
+       
+        interpolant = scatteredInterpolant(reshape(gridMovingimage{2},numel(IMBBX),1),...
+            reshape(gridMovingimage{1},numel(IMBBX),1), reshape(gridMovingimage{3},numel(IMBBX),1)...
+            , reshape(IMBBX,numel(IMBBX),1), 'nearest');
+
+        vals = interpolant(reshape(gridFixedimage{2},numel(IMBBX),1),...
+            reshape(gridFixedimage{1},numel(IMBBX),1), reshape(gridFixedimage{3},numel(IMBBX),1));
+        IMresult = reshape(vals,size(IMBBX));
+     
+        
+%         IFBBX = MNIall_bin(bx(3):bx(4)...
+%                   ,bx(1):bx(2),bx(5):bx(6));    
+        IFBBX = MNIimage{i}(bx(3):bx(4)...
+                  ,bx(1):bx(2),bx(5):bx(6));    
+            
+        similarity(i) = 2*nnz(IMresult&IFBBX)/(nnz(IMresult) + nnz(IFBBX));
+
+        disp('------------Results---------------')
+        disp(['region',num2str(regioninput(i)),' IF&Deformed IM, DICE=',num2str(similarity(i))])
+
+%         tsimilarity = nnz(IMresult&IFBBX)/(nnz(IFBBX));
+%         disp([' IF&Deformed IM, Target Overlap=',num2str(tsimilarity)])
+       
+  end
+
+
+% % for i = 1
+% 
+%       region = num2str(regioninput(i));
+%        IMBBX = suball_bin;
+% %        submask(find(submask~=0)) = 1;
+%        
+%         interpolant = scatteredInterpolant(reshape(gridMovingimage{i,2},numel(IMBBX),1),...
+%             reshape(gridMovingimage{i,1},numel(IMBBX),1), reshape(gridMovingimage{i,3},numel(IMBBX),1)...
+%             , reshape(IMBBX,numel(IMBBX),1), 'nearest');
+% 
+%         vals = interpolant(reshape(gridFixedimage{i,2},numel(IMBBX),1),...
+%             reshape(gridFixedimage{i,1},numel(IMBBX),1), reshape(gridFixedimage{i,3},numel(IMBBX),1));
+%         IMresult = reshape(vals,size(IMBBX));
+%      
+%         
+%         IFBBX = MNIall_bin;    
+%         
+%             
+%         similarity = 2*nnz(IMresult&IFBBX)/(nnz(IMresult) + nnz(IFBBX));
+% 
+%         disp('------------Results---------------')
+%         disp([region,' IF&Deformed IM, DICE=',num2str(similarity)])
+% 
+%         tsimilarity = nnz(IMresult&IFBBX)/(nnz(IFBBX));
+%         disp([region,' IF&Deformed IM, Target Overlap=',num2str(tsimilarity)])
+%         
+% % end
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %% Interpolation volume************
+
+    
+%  num3d = prod(size(gridMovingBBXtransall{1}));
+%    
+%  gridMovingBBX{1} = permute(gridMovingBBXtransall{1},[2 1 3]);
+% gridMovingBBX{2} = permute(gridMovingBBXtransall{2},[2 1 3]);
+% gridMovingBBX{3} = permute(gridMovingBBXtransall{3},[2 1 3]);
+% 
+%           region = num2str(regioninput);
+%     datadir = [Outdir,'/region',region,'/'];
+% 
+%         IMBBX = region_trans((boundingbox(3)-2):(boundingbox(4)+2)...
+%           ,(boundingbox(1)-2):(boundingbox(2)+2),(boundingbox(5)-2):(boundingbox(6)+2));
+%       
+%       STATSleftBBX = statsleft_trans((boundingbox(3)-2):(boundingbox(4)+2)...
+%           ,(boundingbox(1)-2):(boundingbox(2)+2),(boundingbox(5)-2):(boundingbox(6)+2));
+%              
+%       STATSrightBBX = statsright_trans((boundingbox(3)-2):(boundingbox(4)+2)...
+%           ,(boundingbox(1)-2):(boundingbox(2)+2),(boundingbox(5)-2):(boundingbox(6)+2));
+%       
+%         gridFixedBBXtrans{1} = permute(gridFixedBBX{1},[2 1 3]);
+%         gridFixedBBXtrans{2} = permute(gridFixedBBX{2},[2 1 3]);
+%         gridFixedBBXtrans{3} = permute(gridFixedBBX{3},[2 1 3]);
+% 
+%         interpolant = scatteredInterpolant(reshape(gridMovingBBX{2},numel(IMBBX),1),...
+%             reshape(gridMovingBBX{1},numel(IMBBX),1), reshape(gridMovingBBX{3},numel(IMBBX),1)...
+%             , reshape(IMBBX,numel(IMBBX),1), 'nearest');
+%     interpolantstatsleft = scatteredInterpolant(reshape(gridMovingBBX{2},numel(STATSleftBBX),1),...
+%             reshape(gridMovingBBX{1},numel(STATSleftBBX),1), reshape(gridMovingBBX{3},numel(STATSleftBBX),1)...
+%             , reshape(STATSleftBBX,numel(STATSleftBBX),1), 'linear');
+%     interpolantstatsright = scatteredInterpolant(reshape(gridMovingBBX{2},numel(STATSrightBBX),1),...
+%             reshape(gridMovingBBX{1},numel(STATSrightBBX),1), reshape(gridMovingBBX{3},numel(STATSrightBBX),1)...
+%             , reshape(STATSrightBBX,numel(STATSrightBBX),1), 'linear');
+% 
+%         vals = interpolant(reshape(gridFixedBBXtrans{2},numel(IMBBX),1),...
+%             reshape(gridFixedBBXtrans{1},numel(IMBBX),1), reshape(gridFixedBBXtrans{3},numel(IMBBX),1));
+%         IMresult = reshape(vals,size(IMBBX));
+%         
+%         valsstsleft = interpolantstatsleft(reshape(gridFixedBBXtrans{2},numel(STATSleftBBX),1),...
+%             reshape(gridFixedBBXtrans{1},numel(STATSleftBBX),1), reshape(gridFixedBBXtrans{3},numel(STATSleftBBX),1));
+%         valsstsleftresult = reshape(valsstsleft,size(STATSleftBBX));
+%         
+%         valsstsright = interpolantstatsright(reshape(gridFixedBBXtrans{2},numel(STATSrightBBX),1),...
+%             reshape(gridFixedBBXtrans{1},numel(STATSrightBBX),1), reshape(gridFixedBBXtrans{3},numel(STATSrightBBX),1));
+%         valsstsrightresult = reshape(valsstsright,size(STATSrightBBX));
+%         
+%         
+%         IFBBX = MNI((boundingbox(3)-2):(boundingbox(4)+2)...
+%                 ,(boundingbox(1)-2):(boundingbox(2)+2),(boundingbox(5)-2):(boundingbox(6)+2));    % problem is here, this is second region translation    
+%         
+%             
+%         similarity = 2*nnz(IMresult&IFBBX)/(nnz(IMresult) + nnz(IFBBX));
+% 
+%         disp('------------Results---------------')
+%         disp([region,' IF&Deformed IM, DICE=',num2str(similarity)])
+% 
+%         tsimilarity = nnz(IMresult&IFBBX)/(nnz(IFBBX));
+%         disp([region,' IF&Deformed IM, Target Overlap=',num2str(tsimilarity)])
+        
+      
+  %% output
+
+%     IMdeformed = zeros(256,256,256);
+%     stsleftdeformed = zeros(256,256,256);
+%     stsrightdeformed = zeros(256,256,256);
+%     for i = (boundingbox(3)-2):(boundingbox(4)+2)
+%         for j = (boundingbox(1)-2):(boundingbox(2)+2)
+%            for k = (boundingbox(5)-2):(boundingbox(6)+2)
+% 
+%                IMdeformed(i,j,k) = IMresult(i-boundingbox(3)+2+1,j-boundingbox(1)+2+1,k-boundingbox(5)+2+1);
+%                stsleftdeformed(i,j,k) = valsstsleftresult(i-boundingbox(3)+2+1,j-boundingbox(1)+2+1,k-boundingbox(5)+2+1);
+%                stsrightdeformed(i,j,k) = valsstsrightresult(i-boundingbox(3)+2+1,j-boundingbox(1)+2+1,k-boundingbox(5)+2+1);
+% 
+%            end
+%         end
+%     end
+
+    
+%     IMdeformed(find(IMdeformed~=0)) = regioninput;
+    % IMdeformed = 255*uint8(IMdeformed);
+
+
+%     field1 = 'fname';  value1 = [datadir,'/aparc+aseg_',region,'_deformed',kernelscale,'_trans.nii'];
+%     field2 = 'mat';  value2 = [    -1     0     0   128
+%          0     0     1  -146
+%          0    -1     0   148
+%          0     0     0     1];
+%     field3 = 'dim';  value3 = [256 256 256];
+%     field4 = 'dt';  value4 = [16 0]; 
+%     field5 = 'pinfo';  value5 = [1;0;352];
+%     header = struct(field1,value1,field2,value2,field3,value3,field4,value4,...
+%         field5,value5);
+% 
+%     rest_WriteNiftiImage(IMdeformed,header,[datadir,'/aparc+aseg_',region,'_deformed',kernelscale,'_w',num2str(weight),'_trans.nii']);
+% 
+%     %
+%        stsleftfield1 = 'fname';  stsleftvalue1 = [datadir,'/aparc+aseg_',region,'_deformed_TonalLeft.nii'];
+%     stsleftfield2 = 'mat';  stsleftvalue2 = [    -1     0     0   128
+%          0     0     1  -146
+%          0    -1     0   148
+%          0     0     0     1];
+%     stsleftfield3 = 'dim';  stsleftvalue3 = [256 256 256];
+%     stsleftfield4 = 'dt';  stsleftvalue4 = [16 0]; 
+%     stsleftfield5 = 'pinfo';  stsleftvalue5 = [1;0;352];
+%     header = struct(stsleftfield1,stsleftvalue1,stsleftfield2,stsleftvalue2,stsleftfield3,stsleftvalue3,stsleftfield4,stsleftvalue4,...
+%         stsleftfield5,stsleftvalue5);
+% 
+%     rest_WriteNiftiImage(stsleftdeformed,header,[datadir,'/aparc+aseg_',region,'_deformed_TonalLeft.nii']);
+% 
+%     %
+%         stsrightfield1 = 'fname';  stsrightvalue1 = [datadir,'/aparc+aseg_',region,'_deformed_TonalRight'];
+%     stsrightfield2 = 'mat';  stsrightvalue2 = [    -1     0     0   128
+%          0     0     1  -146
+%          0    -1     0   148
+%          0     0     0     1];
+%     stsrightfield3 = 'dim';  stsrightvalue3 = [256 256 256];
+%     stsrightfield4 = 'dt';  stsrightvalue4 = [16 0]; 
+%     stsrightfield5 = 'pinfo';  stsrightvalue5 = [1;0;352];
+%     header = struct(stsrightfield1,stsrightvalue1,stsrightfield2,stsrightvalue2,stsrightfield3,stsrightvalue3,stsrightfield4,stsrightvalue4,...
+%         stsrightfield5,stsrightvalue5);
+% 
+%     rest_WriteNiftiImage(stsrightdeformed,header,[datadir,'/aparc+aseg_',region,'_deformed_TonalRight']);
+
+        
+%     end
+
+
+    %% 3d whole image
+
+%     num3d = prod(size(gridMoving{1}));
+%     gridMovingtrans{1} = permute(gridMoving{1},[2 1 3]);
+%     gridMovingtrans{2} = permute(gridMoving{2},[2 1 3]);
+%     gridMovingtrans{3} = permute(gridMoving{3},[2 1 3]);
+%     gridFixedtrans{1} = permute(gridFixed{1},[2 1 3]);
+%     gridFixedtrans{2} = permute(gridFixed{2},[2 1 3]);
+%     gridFixedtrans{3} = permute(gridFixed{3},[2 1 3]);
+% 
+%     interpolant = scatteredInterpolant(reshape(gridMovingtrans{2},numel(IM),1),...
+%         reshape(gridMovingtrans{1},numel(IM),1), reshape(gridMovingtrans{3},numel(IM),1)...
+%         , reshape(IM,numel(IM),1), 'nearest');
+% 
+%     vals = interpolant(reshape(gridFixedtrans{2},numel(IM),1),...
+%         reshape(gridFixedtrans{1},numel(IM),1), reshape(gridFixedtrans{3},numel(IM),1));
+%     IMresult = reshape(vals,size(IM));
+% 
+% %     IFBBX = IF((min(IUy)-2):(max(IUy)+2)...
+% %         ,(min(IUx)-2):(max(IUx)+2),(min(IUz)-2):(max(IUz)+2));
+% 
+%     similarity = 2*nnz(IMresult&IF)/(nnz(IMresult) + nnz(IF));
+% 
+%     disp('------------Results---------------')
+%     disp(['IF&Deformed IM, DICE=',num2str(similarity)])
+% 
+%     tsimilarity = nnz(IMresult&IF)/(nnz(IF));
+%     disp(['IF&Deformed IM, Target Overlap=',num2str(tsimilarity)])
+
+    %% output
+%     disp(['Mean Euclidean Distance after Transformation: ',num2str(MED)])
+%     disp(['Max Euclidean Distance after Transformation: ',num2str(MEDmax)])
+% 
+%     IMdeformed = zeros(256,256,256);
+%     for i = (min(IUy)-2):(max(IUy)+2)
+%         for j = (min(IUx)-2):(max(IUx)+2)
+%            for k = (min(IUz)-2):(max(IUz)+2)
+% 
+%                IMdeformed(i,j,k) = IMresult(i-min(IUy)+2+1,j-min(IUx)+2+1,k-min(IUz)+2+1);
+% 
+%            end
+%         end
+%     end
+% 
+%     IMdeformed(find(IMdeformed~=0)) = regioninput;
+%     % IMdeformed = 255*uint8(IMdeformed);
+% 
+% 
+%     field1 = 'fname';  value1 = [datadir,'/aparc+aseg_',regionstr,'_deformed',kernelscale,'_trans.nii'];
+%     field2 = 'mat';  value2 = [    -1     0     0   128
+%          0     0     1  -146
+%          0    -1     0   148
+%          0     0     0     1];
+%     field3 = 'dim';  value3 = [256 256 256];
+%     field4 = 'dt';  value4 = [16 0]; 
+%     field5 = 'pinfo';  value5 = [1;0;352];
+%     header = struct(field1,value1,field2,value2,field3,value3,field4,value4,...
+%         field5,value5);
+% 
+%     rest_WriteNiftiImage(IMdeformed,header,[datadir,'/aparc+aseg_',regionstr,'_deformed',kernelscale,'_w',num2str(weight),'_trans.nii']);
+
+

@@ -1,0 +1,174 @@
+/home/ray/Data/FreeSurferMNI152/FreeSurfer/mri
+/usr/local/freesurfer/5.1/bin/mri_nu_correct.mni
+--i orig.mgz --o nu.mgz --uchar transforms/talairach.xfm --n 2
+nIters 2
+$Id: mri_nu_correct.mni,v 1.18 2011/03/02 20:16:39 nicks Exp $
+Linux ph18razlighi.neuro.columbia.edu 2.6.32-573.7.1.el6.x86_64 #1 SMP Tue Sep 22 22:00:00 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux
+Wed Dec  9 13:46:55 EST 2015
+Program nu_correct, built from:
+Package MNI N3, version 1.10, compiled by nicks@minerva (x86_64-unknown-linux-gnu) on 2010-02-20 at 17:32:37
+tmpdir is ./tmp.mri_nu_correct.mni.15729
+/home/ray/Data/FreeSurferMNI152/FreeSurfer/mri
+mri_convert orig.mgz ./tmp.mri_nu_correct.mni.15729/nu0.mnc -odt float
+mri_convert orig.mgz ./tmp.mri_nu_correct.mni.15729/nu0.mnc -odt float 
+$Id: mri_convert.c,v 1.179.2.2 2011/05/16 20:53:47 greve Exp $
+reading from orig.mgz...
+TR=1000.00, TE=0.00, TI=0.00, flip angle=0.00
+i_ras = (-1, 0, 0)
+j_ras = (0, 0, -1)
+k_ras = (0, 1, 0)
+changing data type from uchar to float (noscale = 0)...
+writing to ./tmp.mri_nu_correct.mni.15729/nu0.mnc...
+ 
+--------------------------------------------------------
+Iteration 1 Wed Dec  9 13:46:59 EST 2015
+nu_correct -clobber ./tmp.mri_nu_correct.mni.15729/nu0.mnc ./tmp.mri_nu_correct.mni.15729/nu1.mnc -tmpdir ./tmp.mri_nu_correct.mni.15729/0/
+[ray@ph18razlighi.neuro.columbia.edu:/home/ray/Data/FreeSurferMNI152/FreeSurfer/mri/] [2015-12-09 13:46:59] running:
+  /usr/local/freesurfer/5.1/mni/bin/nu_estimate_np_and_em -parzen -log -sharpen 0.15 0.01 -iterations 50 -stop 0.001 -shrink 4 -auto_mask -nonotify -b_spline 1 -distance 200 -quiet -execute -clobber -nokeeptmp -tmpdir ./tmp.mri_nu_correct.mni.15729/0/ ./tmp.mri_nu_correct.mni.15729/nu0.mnc ./tmp.mri_nu_correct.mni.15729/nu1.imp
+
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Number of iterations: 24 
+CV of field change: 0.000941225
+[ray@ph18razlighi.neuro.columbia.edu:/home/ray/Data/FreeSurferMNI152/FreeSurfer/mri/] [2015-12-09 13:47:20] running:
+  /usr/local/freesurfer/5.1/mni/bin/make_template -quiet -shrink 3 ./tmp.mri_nu_correct.mni.15729/nu0.mnc ./tmp.mri_nu_correct.mni.15729/0//template.mnc
+
+Transforming slices:......................................................................................Done
+Transforming slices:................................................................................................................................................................................................................................................................Done
+ 
+ 
+--------------------------------------------------------
+Iteration 2 Wed Dec  9 13:47:23 EST 2015
+nu_correct -clobber ./tmp.mri_nu_correct.mni.15729/nu1.mnc ./tmp.mri_nu_correct.mni.15729/nu2.mnc -tmpdir ./tmp.mri_nu_correct.mni.15729/1/
+[ray@ph18razlighi.neuro.columbia.edu:/home/ray/Data/FreeSurferMNI152/FreeSurfer/mri/] [2015-12-09 13:47:23] running:
+  /usr/local/freesurfer/5.1/mni/bin/nu_estimate_np_and_em -parzen -log -sharpen 0.15 0.01 -iterations 50 -stop 0.001 -shrink 4 -auto_mask -nonotify -b_spline 1 -distance 200 -quiet -execute -clobber -nokeeptmp -tmpdir ./tmp.mri_nu_correct.mni.15729/1/ ./tmp.mri_nu_correct.mni.15729/nu1.mnc ./tmp.mri_nu_correct.mni.15729/nu2.imp
+
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Processing:.................................................................Done
+Number of iterations: 13 
+CV of field change: 0.000993012
+[ray@ph18razlighi.neuro.columbia.edu:/home/ray/Data/FreeSurferMNI152/FreeSurfer/mri/] [2015-12-09 13:47:34] running:
+  /usr/local/freesurfer/5.1/mni/bin/make_template -quiet -shrink 3 ./tmp.mri_nu_correct.mni.15729/nu1.mnc ./tmp.mri_nu_correct.mni.15729/1//template.mnc
+
+Transforming slices:......................................................................................Done
+Transforming slices:................................................................................................................................................................................................................................................................Done
+ 
+ 
+ 
+mri_binarize --i ./tmp.mri_nu_correct.mni.15729/nu2.mnc --min -1 --o ./tmp.mri_nu_correct.mni.15729/ones.mgz
+
+$Id: mri_binarize.c,v 1.26.2.1 2011/04/08 15:40:50 greve Exp $
+cwd /home/ray/Data/FreeSurferMNI152/FreeSurfer/mri
+cmdline mri_binarize --i ./tmp.mri_nu_correct.mni.15729/nu2.mnc --min -1 --o ./tmp.mri_nu_correct.mni.15729/ones.mgz 
+sysname  Linux
+hostname ph18razlighi.neuro.columbia.edu
+machine  x86_64
+user     ray
+
+input      ./tmp.mri_nu_correct.mni.15729/nu2.mnc
+frame      0
+nErode3d   0
+nErode2d   0
+output     ./tmp.mri_nu_correct.mni.15729/ones.mgz
+Binarizing based on threshold
+min        -1
+max        +infinity
+binval        1
+binvalnot     0
+Found 16777216 values in range
+Counting number of voxels
+Found 16777216 voxels in final mask
+mri_binarize done
+mri_segstats --id 1 --seg ./tmp.mri_nu_correct.mni.15729/ones.mgz --i orig.mgz --sum ./tmp.mri_nu_correct.mni.15729/sum.junk --avgwf ./tmp.mri_nu_correct.mni.15729/input.mean.dat
+
+$Id: mri_segstats.c,v 1.75.2.2 2011/04/27 22:18:58 nicks Exp $
+cwd 
+cmdline mri_segstats --id 1 --seg ./tmp.mri_nu_correct.mni.15729/ones.mgz --i orig.mgz --sum ./tmp.mri_nu_correct.mni.15729/sum.junk --avgwf ./tmp.mri_nu_correct.mni.15729/input.mean.dat 
+sysname  Linux
+hostname ph18razlighi.neuro.columbia.edu
+machine  x86_64
+user     ray
+Loading ./tmp.mri_nu_correct.mni.15729/ones.mgz
+Loading orig.mgz
+Voxel Volume is 1 mm^3
+Generating list of segmentation ids
+Found   1 segmentations
+Computing statistics for each segmentation
+  0     1   16777216  1.67772e+07
+
+Reporting on   1 segmentations
+Computing spatial average of each frame
+  0
+Writing to ./tmp.mri_nu_correct.mni.15729/input.mean.dat
+mri_segstats --id 1 --seg ./tmp.mri_nu_correct.mni.15729/ones.mgz --i ./tmp.mri_nu_correct.mni.15729/nu2.mnc --sum ./tmp.mri_nu_correct.mni.15729/sum.junk --avgwf ./tmp.mri_nu_correct.mni.15729/output.mean.dat
+
+$Id: mri_segstats.c,v 1.75.2.2 2011/04/27 22:18:58 nicks Exp $
+cwd 
+cmdline mri_segstats --id 1 --seg ./tmp.mri_nu_correct.mni.15729/ones.mgz --i ./tmp.mri_nu_correct.mni.15729/nu2.mnc --sum ./tmp.mri_nu_correct.mni.15729/sum.junk --avgwf ./tmp.mri_nu_correct.mni.15729/output.mean.dat 
+sysname  Linux
+hostname ph18razlighi.neuro.columbia.edu
+machine  x86_64
+user     ray
+Loading ./tmp.mri_nu_correct.mni.15729/ones.mgz
+Loading ./tmp.mri_nu_correct.mni.15729/nu2.mnc
+Voxel Volume is 1 mm^3
+Generating list of segmentation ids
+Found   1 segmentations
+Computing statistics for each segmentation
+  0     1   16777216  1.67772e+07
+
+Reporting on   1 segmentations
+Computing spatial average of each frame
+  0
+Writing to ./tmp.mri_nu_correct.mni.15729/output.mean.dat
+mris_calc -o ./tmp.mri_nu_correct.mni.15729/nu2.mnc ./tmp.mri_nu_correct.mni.15729/nu2.mnc mul .91214773789212870480
+mri_convert ./tmp.mri_nu_correct.mni.15729/nu2.mnc nu.mgz --like orig.mgz
+mri_convert ./tmp.mri_nu_correct.mni.15729/nu2.mnc nu.mgz --like orig.mgz 
+$Id: mri_convert.c,v 1.179.2.2 2011/05/16 20:53:47 greve Exp $
+reading from ./tmp.mri_nu_correct.mni.15729/nu2.mnc...
+TR=0.00, TE=0.00, TI=0.00, flip angle=0.00
+i_ras = (-1, 0, 0)
+j_ras = (0, 0, -1)
+k_ras = (0, 1, 0)
+INFO: transform src into the like-volume: orig.mgz
+writing to nu.mgz...
+mri_make_uchar nu.mgz transforms/talairach.xfm nu.mgz
+type change took 0 minutes and 10 seconds.
+mapping (18, 194) to ( 3, 110)
+ 
+ 
+Wed Dec  9 13:48:27 EST 2015
+mri_nu_correct.mni done

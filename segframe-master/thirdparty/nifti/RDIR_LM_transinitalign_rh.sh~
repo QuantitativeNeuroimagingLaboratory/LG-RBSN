@@ -1,0 +1,12 @@
+#!/bin/bash
+#$ -cwd
+
+Sub=$1
+Outdir=$2
+
+#Sub=P00000001
+#Outdir=/share/projects/razlighi_lab/users/hengda/RDIR_LM/Workspace_${Sub}
+mkdir log 2>/dev/null
+/usr/local/MATLAB/R2017b/bin/matlab -nodesktop -nodisplay -nojvm -r "addpath('${Scriptdir}');checkldm_trans_rh('${Outdir}');quit;" >& 'log/qsub_transldm_rh_'${Sub}'.txt'
+
+
